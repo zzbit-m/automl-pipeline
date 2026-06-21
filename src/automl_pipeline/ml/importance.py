@@ -1,10 +1,9 @@
-from sklearn.inspection import permutation_importance
+﻿from sklearn.inspection import permutation_importance
 from sklearn.base import BaseEstimator
-import numpy as np
 import numpy.typing as npt
 from pandas import DataFrame
 
-from .preprocessing import Preprocessor
+from automl_pipeline.ml.preprocessing import Preprocessor
 
 
 def _build_feature_map(preprocessor: Preprocessor) -> dict[str, str]:
@@ -34,7 +33,11 @@ def compute_importance(
     transformed_names = preprocessor.pipeline.get_feature_names_out()
     feature_map = _build_feature_map(preprocessor)
 
-    raw = DataFrame({"feature": transformed_names, "importance": result.importances_mean, "std": result.importances_std})
+    raw = DataFrame({
+        "feature": transformed_names,
+        "importance": result.importances_mean,
+        "std": result.importances_std,
+    })
     raw["original"] = raw["feature"].map(feature_map)
     grouped = raw.groupby("original", as_index=False).agg({"importance": "sum", "std": "mean"})
     grouped.sort_values("importance", ascending=False, inplace=True)

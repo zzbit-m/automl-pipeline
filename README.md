@@ -6,7 +6,7 @@ Upload a CSV, auto-train 5 models, pick the best one, download predictions. No M
 
 ```sh
 pip install -e .
-streamlit run frontend/app.py
+streamlit run src/automl_pipeline/web/app.py
 ```
 
 Or with Docker:
@@ -42,19 +42,22 @@ Upload CSV → pick target → auto-detect problem type (classification/regressi
 ## Project structure
 
 ```
-├── frontend/app.py      Streamlit UI (single page)
-├── pipeline/            ML pipeline modules
-│   ├── ingestion.py     CSV loading & validation
-│   ├── detector.py      Auto-detect classification vs regression
-│   ├── preprocessing.py ColumnTransformer (impute, scale, encode)
-│   ├── trainer.py       Cross-validation model comparison
-│   ├── predictor.py     Predict on new data
-│   ├── summary.py       Data summary statistics
-│   └── importance.py    Feature importance via permutation
-├── db/                  SQLite persistence
-│   ├── schema.py        Table definitions
-│   └── queries.py       Insert & query operations
-├── data/                SQLite database file
+├── src/automl_pipeline/       Main package
+│   ├── web/app.py             Streamlit UI (single page)
+│   ├── ml/                    ML pipeline modules
+│   │   ├── ingestion.py       CSV loading & validation
+│   │   ├── detection.py       Auto-detect classification vs regression
+│   │   ├── preprocessing.py   ColumnTransformer (impute, scale, encode)
+│   │   ├── training.py        Cross-validation model comparison
+│   │   ├── prediction.py      Predict on new data
+│   │   ├── summary.py         Data summary statistics
+│   │   └── importance.py      Feature importance via permutation
+│   ├── storage/database.py    SQLite persistence (schema + queries)
+│   └── config.py              Centralized constants
+├── tests/                     Pytest test suite
+│   └── conftest.py            Shared fixtures
+├── samples/                   Sample CSVs for testing
+├── data/                      SQLite database file (gitignored)
 ├── requirements.txt
 ├── Dockerfile
 └── pyproject.toml

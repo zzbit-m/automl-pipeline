@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from typing import IO
 import pandas as pd
 from pandas import DataFrame

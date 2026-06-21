@@ -1,4 +1,4 @@
-from pandas import DataFrame
+﻿from pandas import DataFrame
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -21,11 +21,17 @@ class Preprocessor:
         transformers: list[tuple[str, SkPipeline, list[str]]] = []
         if numeric_cols:
             transformers.append(
-                ("num", SkPipeline([("impute", SimpleImputer(strategy="mean")), ("scale", StandardScaler())]), numeric_cols)
+                ("num", SkPipeline([
+                    ("impute", SimpleImputer(strategy="mean")),
+                    ("scale", StandardScaler()),
+                ]), numeric_cols)
             )
         if categorical_cols:
             transformers.append(
-                ("cat", SkPipeline([("impute", SimpleImputer(strategy="most_frequent")), ("encode", OneHotEncoder(handle_unknown="ignore"))]), categorical_cols)
+                ("cat", SkPipeline([
+                    ("impute", SimpleImputer(strategy="most_frequent")),
+                    ("encode", OneHotEncoder(handle_unknown="ignore")),
+                ]), categorical_cols)
             )
 
         self._pipeline = ColumnTransformer(transformers=transformers, remainder="drop")

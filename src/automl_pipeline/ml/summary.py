@@ -1,4 +1,4 @@
-from pandas import DataFrame
+﻿from pandas import DataFrame
 
 
 def summarize(df: DataFrame) -> dict:

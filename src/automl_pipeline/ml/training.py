@@ -1,4 +1,4 @@
-from typing import Any
+﻿from typing import Any
 from pandas import DataFrame
 import pandas as pd
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
@@ -12,6 +12,8 @@ from xgboost import XGBClassifier, XGBRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 import numpy as np
 import numpy.typing as npt
+
+from automl_pipeline.config import CV_FOLDS, HOLDOUT_SIZE, RANDOM_STATE
 
 
 def _classification_models() -> dict[str, BaseEstimator]:
@@ -41,29 +43,18 @@ def _encode_target(y: npt.NDArray) -> tuple[npt.NDArray, LabelEncoder | None]:
     return y, None
 
 
-def compare_models(
-    X: npt.NDArray, y: npt.NDArray, problem_type: str, cv: int = 5, test_size: float = 0.2
-) -> tuple[dict[str, Any], BaseEstimator, float]:
-    X = np.asarray(X)
-    y = np.asarray(y)
-
-    if y.dtype.kind in ("U", "O", "S"):
-        y, _ = _encode_target(y)
-
-    stratify = y if problem_type == "classification" else None
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, stratify=stratify, random_state=42
-    )
-
-    models = _classification_models() if problem_type == "classification" else _regression_models()
-    scoring = "accuracy" if problem_type == "classification" else "neg_root_mean_squared_error"
-
+def _select_best_with_cv(
+    models: dict[str, BaseEstimator],
+    X_train: npt.NDArray,
+    y_train: npt.NDArray,
+    scoring: str,
+) -> tuple[dict[str, Any], BaseEstimator]:
     results: dict[str, Any] = {}
     best_cv_score = -np.inf
     best_model: BaseEstimator | None = None
 
     for name, model in models.items():
-        scores = cross_val_score(model, X_train, y_train, cv=cv, scoring=scoring, n_jobs=-1)
+        scores = cross_val_score(model, X_train, y_train, cv=CV_FOLDS, scoring=scoring, n_jobs=-1)
         mean_score = scores.mean()
         results[name] = {
             "mean": mean_score,
@@ -76,14 +67,46 @@ def compare_models(
 
     if best_model is None:
         raise RuntimeError("no models trained")
+    return results, best_model
+
+
+def _compute_holdout_score(
+    model: BaseEstimator,
+    X_test: npt.NDArray,
+    y_test: npt.NDArray,
+    problem_type: str,
+) -> float:
+    y_pred = model.predict(X_test)
+    if problem_type == "classification":
+        return accuracy_score(y_test, y_pred)
+    return float(np.sqrt(mean_squared_error(y_test, y_pred)))
+
+
+def compare_models(
+    X: npt.NDArray,
+    y: npt.NDArray,
+    problem_type: str,
+    cv: int = CV_FOLDS,
+    test_size: float = HOLDOUT_SIZE,
+) -> tuple[dict[str, Any], BaseEstimator, float]:
+    X = np.asarray(X)
+    y = np.asarray(y)
+
+    if y.dtype.kind in ("U", "O", "S"):
+        y, _ = _encode_target(y)
+
+    stratify = y if problem_type == "classification" else None
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, stratify=stratify, random_state=RANDOM_STATE
+    )
+
+    models = _classification_models() if problem_type == "classification" else _regression_models()
+    scoring = "accuracy" if problem_type == "classification" else "neg_root_mean_squared_error"
+
+    results, best_model = _select_best_with_cv(models, X_train, y_train, scoring)
 
     best_model.fit(X_train, y_train)
-    y_pred = best_model.predict(X_test)
-
-    if problem_type == "classification":
-        holdout_score = accuracy_score(y_test, y_pred)
-    else:
-        holdout_score = float(np.sqrt(mean_squared_error(y_test, y_pred)))
+    holdout_score = _compute_holdout_score(best_model, X_test, y_test, problem_type)
 
     best_model.fit(X, y)
 

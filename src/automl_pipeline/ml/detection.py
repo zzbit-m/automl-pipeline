@@ -1,7 +1,6 @@
-from pandas import DataFrame
+﻿from pandas import DataFrame
 
-
-UNIQUE_CLASSIFICATION_CUTOFF = 20
+from automl_pipeline.config import UNIQUE_CLASSIFICATION_CUTOFF
 
 
 def detect_problem(df: DataFrame, target: str) -> str:

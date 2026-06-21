@@ -1,7 +1,9 @@
-import sys
+﻿import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+_src = Path(__file__).resolve().parent.parent.parent
+if str(_src) not in sys.path:
+    sys.path.insert(0, str(_src))
 
 import streamlit as st
 import pandas as pd
@@ -9,28 +11,30 @@ from pandas import DataFrame
 import altair as alt
 import joblib
 
-from pipeline.ingestion import load_csv, validate_target, validate_inference_columns, IngestionError
-from pipeline.summary import summarize
-from pipeline.detector import detect_problem
-from pipeline.preprocessing import Preprocessor
-from pipeline.trainer import compare_models, leaderboard
-from pipeline.importance import compute_importance
-from pipeline.predictor import predict
-from db.schema import init_db
-from db.queries import insert_job, insert_model_result, insert_predictions, get_jobs
-from db.queries import get_best_model, get_predictions, get_model_results
+from automl_pipeline.ml.ingestion import (
+    load_csv, validate_target, validate_inference_columns, IngestionError,
+)
+from automl_pipeline.ml.summary import summarize
+from automl_pipeline.ml.detection import detect_problem
+from automl_pipeline.ml.preprocessing import Preprocessor
+from automl_pipeline.ml.training import compare_models, leaderboard
+from automl_pipeline.ml.importance import compute_importance
+from automl_pipeline.ml.prediction import predict
+from automl_pipeline.storage.database import init_db, insert_job, insert_model_result
+from automl_pipeline.storage.database import insert_predictions, get_jobs, get_best_model
+from automl_pipeline.storage.database import get_predictions, get_model_results
 
 st.set_page_config(page_title="AutoML Pipeline", layout="wide")
 init_db()
 
-if "df" not in st.session_state:
-    st.session_state.df = None
-if "trained" not in st.session_state:
-    st.session_state.trained = False
-if "job_id" not in st.session_state:
-    st.session_state.job_id = None
-if "view_job_id" not in st.session_state:
-    st.session_state.view_job_id = None
+for key in ("df", "trained", "job_id", "view_job_id"):
+    if key not in st.session_state:
+        st.session_state[key] = None
+
+st.session_state.setdefault("df", None)
+st.session_state.setdefault("trained", False)
+st.session_state.setdefault("job_id", None)
+st.session_state.setdefault("view_job_id", None)
 
 st.title("AutoML Pipeline")
 st.markdown("Upload a CSV, pick the target column, and let the pipeline find the best model.")
@@ -61,7 +65,8 @@ if uploaded:
             display_cols += ["top"]
         st.dataframe(
             stats_df[display_cols].style.format(
-                {"null_pct": "{:.1f}%", "mean": "{:.3f}", "std": "{:.3f}", "min": "{:.3f}", "max": "{:.3f}"}
+                {"null_pct": "{:.1f}%", "mean": "{:.3f}", "std": "{:.3f}",
+                 "min": "{:.3f}", "max": "{:.3f}"}
             ),
             use_container_width=True,
         )
@@ -90,11 +95,7 @@ if uploaded:
             progress.progress(30, text="Training models with cross-validation...")
             results, best_model, holdout_score = compare_models(X, y, problem)
 
-            progress.progress(50, text="Evaluating best model on holdout set...")
-
-            progress.progress(60, text="Refitting best model on full data...")
-
-            progress.progress(70, text="Building leaderboard...")
+            progress.progress(70, text="Building leaderboard and saving results...")
             job_id = insert_job(uploaded.name, target, problem, holdout_score)
             st.session_state.job_id = job_id
 
@@ -133,7 +134,10 @@ if st.session_state.trained:
     best_row = lb.iloc[0]
     metric_label = "Accuracy" if st.session_state.problem == "classification" else "RMSE"
     holdout_label = f"Holdout {metric_label}: {st.session_state.holdout_score:.4f}"
-    st.success(f"Best model: **{best_row['model']}** — CV Score: {best_row['score']:.4f} — {holdout_label}")
+    st.success(
+        f"Best model: **{best_row['model']}** — "
+        f"CV Score: {best_row['score']:.4f} — {holdout_label}"
+    )
 
     with st.expander("Feature importance"):
         imp_df = st.session_state.importance_df
@@ -190,7 +194,10 @@ if st.session_state.trained:
                 assert job_id is not None
                 prediction_rows = []
                 for idx, row in preds.iterrows():
-                    prediction_rows.append({"row_index": int(idx), "prediction": float(row["prediction"])})
+                    prediction_rows.append({
+                        "row_index": int(idx),
+                        "prediction": float(row["prediction"]),
+                    })
                 insert_predictions(job_id, prediction_rows)
 
                 st.dataframe(preds, use_container_width=True)

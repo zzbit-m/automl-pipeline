@@ -1,8 +1,7 @@
-from pandas import DataFrame
+﻿from pandas import DataFrame
 from sklearn.base import BaseEstimator
-import numpy.typing as npt
 
-from .preprocessing import Preprocessor
+from automl_pipeline.ml.preprocessing import Preprocessor
 
 
 def predict(

@@ -72,4 +72,4 @@ Upload CSV → pick target → auto-detect problem type (classification/regressi
 
 1. Push this repo to GitHub
 2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect your repo, set main file to `frontend/app.py`
+3. Connect your repo, set main file to `src/automl_pipeline/web/app.py`
